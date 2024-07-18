@@ -1,0 +1,54 @@
+import numpy as np
+import gamma_UNIFAC_IL as gamma
+import phi_virial as phi
+import matplotlib.pyplot as plt
+
+# Python script to solve the Isothermal Flash problem (PTFlash)
+# Using the Rachford & Rice Algorithm
+tol = 1.0e-6
+# ----- specify the system ------------
+system = ["CO2", "[BMIm][PF6]"]
+# ------------------------------------------
+# -- Specify feed and flash conditions -----
+T_op = 350.15  # K                    Flash drum operating  temperature
+P_op = 30.0 * 1.01325  # bar       Flash drum operating  pressure
+z = [0.6, 0.4]  # Feed compositions
+F = 100  # kmol/h                   Feed stream molar flow
+# -------------------------------------------
+# Initial guesses ---------------------------
+psi_o = 0.5  # initial guess for the phase fraction (psi)
+xo = [0.5, 0.5]
+Nc = len(xo)
+x1 = np.zeros(len(xo))
+# -------------------------------------------------------------------
+while 1.0 > 0.0:
+
+    gamma_i = gamma.activity_coeff(xo, T_op, system)
+
+    phi_i = phi.cfuga_virial(yo, T_op, P_op, system)
+
+    Ki = gamma_i / phi_i
+    # Evaluate the R&R objective function
+    sum_rr = 0.0
+    defo_rr = 0.0
+    for i in range(Nc):
+        sum_rr = sum_rr + (z[i] * (1.0 - Ki[i])) / (1.0 + psi_o * (Ki[i] - 1.0))
+        defo_rr = defo_rr + (z[i] * ((Ki[i] - 1.0) ** 2)) / ((1.0 + (psi_o * (Ki[i] - 1.0))) ** 2)
+    fob_rr = sum_rr
+    if abs(fob_rr) < tol:
+        PSI = psi_o
+        print("PTFlash phase-fraction (PSI):", PSI)
+        V = psi_o * F
+        print("Vapour stream  molar flow rate :", V)
+        L = F - V
+        print("Liquid stream  molar flow rate :", L)
+        print("Liquid  molar composition :", xo)
+        print("Vapour  molar composition :", yo)
+        break
+    else:
+        psi_1 = psi_o - (fob_rr / defo_rr)
+        psi_o = psi_1
+        for i in range(Nc):
+            x1[i] = z[i] / (1.0 + (psi_1 * (Ki[i] - 1.0)))
+        xo = x1
+        yo = Ki * xo
